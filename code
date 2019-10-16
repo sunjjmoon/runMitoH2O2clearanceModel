@@ -1,0 +1,209 @@
+function runMitoH2O2clearanceModel
+% 2019. 09. 25. 
+% Written by Sun Jin Moon
+% Objectives : Run the system of ordinary differential equations based on
+% the best-fitted parameters.
+% Input : 
+%   Dala_ex - Concentration of extracellular D-alanine
+% Output :
+%   result - Returns an excel sheet that contains concentration of species
+%   involved in the runH2O2clearanceModel as a function of time. Row
+%   represents the time points and column represents species in the model
+clc 
+clear all
+ 
+Dala_ex = [0,1,5,10,15,25,50]'; % mM
+ 
+for i = 1: length(Dala_ex)
+   runMitoH2O2clearanceModel_final(Dala_ex(i),i); 
+end
+ 
+end
+ 
+ 
+function [time,y] = runMitoH2O2clearanceModel_final(Dala_ex,i)
+ 
+%% Initial concentrations
+Dala_ex = Dala_ex*10^-3;
+Dala_en = 0;
+NADPH = 41.8e-6; 
+H2O2 = 3.33e-9;
+Prx_SH2 = 6e-5;
+Prx_SS = 3.81e-7; 
+PrxSOH = 2e-7;
+PrxSOOH = 2.67e-9;
+Trx_SH2 = 5e-6;
+Trx_SS = 7.54e-8;
+NADP = NADPH/10;
+GSSG=1.78e-6;
+GSH=3.68e-4; 
+GrxSSG=2.98e-10;
+GrxSH=7e-7;
+PrSSG=6.38e-8; 
+PrSH=1.22e-4;
+PrSOH = 9.2e-11;
+PrSS = 3.32e-6; 
+PrSH2 = 1.09e-3; 
+GPxOx = 1.36e-9; 
+GPxSSG = 5.43e-12;
+GPxRd = 2e-6; 
+y0 = [Dala_ex, Dala_en, H2O2, Prx_SH2, Prx_SS, Trx_SH2, ...
+    Trx_SS, GSSG, GSH, GrxSSG, GrxSH,...
+    PrSSG, PrSH, PrSOH, PrSS, PrSH2,...
+    GPxOx, GPxSSG, GPxRd, PrxSOH, PrxSOOH,...
+    NADP, NADPH];
+ 
+%% Set time interval
+t0 = 0; % second
+tend = 60; % min
+tdel_sim = 1; % second
+tspan_sim = [0:tdel_sim:tend*60]; % second
+ 
+%% Run ODE
+options = odeset('RelTol',1e-8,'AbsTol',1e-10,'NonNegative',1);
+[time,y]=ode15s(@(t,y)odesys(t,y),tspan_sim,y0,options);
+ 
+%% Return the output in table
+    Variable = {'Time','Dala_ex','Dala_en','H2O2',...
+    'Prx_SH2', 'Prx_SS', 'Trx_SH2', ...
+    'Trx_SS', 'GSSG', 'GSH', 'GrxSSG', 'GrxSH',...
+    'PrSSG', 'PrSH', 'PrSOH', 'PrSS', 'PrSH2',...
+    'GPxOx', 'GPxSSG', 'GPxRd', 'PrxSOH', 'PrxSOOH',...
+    'NADP','NADPH'};
+    T = array2table([time y],'VariableNames',Variable);
+    filename = ['mitoH2O2clearanceModel.xlsx'];
+    writetable(T,filename,'Sheet',i);   
+end
+ 
+function dydt=odesys(t,y)
+%% States
+DAAO_ex = y(1);
+DAAO_en = y(2);
+H2O2 = y(3);
+PrxSH2 = y(4);
+PrxSS = y(5);
+TrxSH = y(6);
+TrxSS = y(7);
+GSSG = y(8);
+GSH = y(9);
+GrxSSG = y(10);
+GrxSH = y(11);
+PrSSG = y(12);
+PrSH = y(13);
+PrSOH = y(14);
+PrSS = y(15);
+PrSH2 = y(16);
+GPxOx = y(17);
+GPxSSG = y(18);
+GPxRd = y(19);
+PrxSOH = y(20);
+PrxSOOH = y(21);
+NADP = y(22);
+NADPH = y(23);
+ 
+%% kinetic values
+k_gen_H2O2 = 0.014855;
+k_gen_NADPH = 1.1742;
+k_transport = 5.31e-12;
+k_gen_H2O2_intra = 4e-6;
+alpha = 9.5483;
+ 
+% monothiol-Protein-glutathionylation pathway
+k11 = 3.2e6; % GSSG-NADPH to GSH-NADP
+k12 = 3.7e4; % GrxSSG-GSH to GrxSH-GSSG
+k13 = 9.1e4; % PrSSG-GrxSH to PrSH-GrxSSG
+k14 = 1.2e5; % PrSOH-GSH to PrSSG-GSSG
+k15 = 1e2; % PrSH-H2O2 to PrSOH-H2O
+k16 = 7.4e-5; % Auto-oxidation of GSH
+ 
+% Prx pathway
+k21 = 2.2e5; % TrxSS-NADPH to TrxSH-NADP
+k22 = 2.1e6; %PrxSS-TrxSH to PrxSH-TrxSS
+k23 = 2e7; %PrxSH-H2O2 to PrxSOH
+k24 = 1.2e4; % PrxSOH-H2O2 to PrxSOOH-H2O
+k25 = 3e-3; % per s -- Prx-SOOH to Prx-OH by Srx
+k26 = 20; %per s PrxSOH to PrxSS
+ 
+% dithiol protein oxidation pathway
+k31 = 1e2; % PrSS-TrxSH to PrSH2-TrxSS
+k32 = 1e2; % PrSH2-H2O2 to PrSS-H2O
+ 
+% GPx pathway
+k41 = 3e6; % GPx-H2O2 to GPxOx-H2O
+k42 = 4e4; % GPxOx-GSH to GPxSSG
+k43 = 1e7; % GpxSSG-GSH to GPxSH-GSSG
+ 
+%% permeability parameters
+A = 4*pi*(10e-6)^2; % surface area of cell m^2
+cell = 7e5; %cells
+volWell = 2e-6; %m^3
+volCell = 4.18879e-15; %m^3
+ 
+%% reaction equations
+v_gen_H2O2 = k_gen_H2O2*DAAO_en;
+v_gen_H2O2_intra = k_gen_H2O2_intra;
+v_gen_NADPH = k_gen_NADPH*(NADP);
+ 
+% % monothiol-Protein-glutathionylation pathway
+v11 = k11*(GSSG)*NADPH;
+v12 = k12*(GrxSSG)*GSH;
+v13 = k13*(PrSSG)*(GrxSH);
+v14 = k14*(PrSOH)*GSH;
+v15 = k15*(PrSH)*(H2O2);
+v16 = k16*(GSH); % auto GSH oxidation
+ 
+% Prx pathway
+v21 = k21*(TrxSS)*NADPH;
+v22 = k22*PrxSS*TrxSH;
+v23 = k23*H2O2*PrxSH2;
+ 
+% Prx pathway-hyperoxidation
+v24 = k24*H2O2*PrxSOH; %Hyperoxidation
+v25 = k25*PrxSOOH; %Srx 
+v26 = k26*PrxSOH; % self-disulfide formation of Prx(SOH) to Prx(SS)
+ 
+% dithiol protein oxidation pathway
+v31 = k31*TrxSH*(PrSS);   
+v32 = k32*H2O2*PrSH2;
+ 
+% Gpx pathway
+v41 = k41*H2O2*GPxRd;
+v42 = k42*(GPxOx)*GSH;
+v43 = k43*(GPxSSG)*GSH;
+ 
+v_gen_H2O2_total = v_gen_H2O2+v_gen_H2O2_intra-v15-v23-v24-v32-v41;
+ 
+% 5. system of differential equations
+dydt=zeros(length(y),1);
+% Dalanine transport and generation of H2O2.
+dydt(1) = -k_transport*A*cell/volWell*(volWell/volCell/cell*DAAO_ex-DAAO_en); %Dala_ex
+dydt(2) = k_transport*A/volCell*(volWell/volCell/cell*DAAO_ex-DAAO_en)-v_gen_H2O2; % Dala_in
+dydt(3) = v_gen_H2O2+v_gen_H2O2_intra-v15-v23-v24-v32-v41; %H2O2
+%Prx-Trx-pathway
+dydt(4) = v22-v23; %PrxSH
+dydt(5) = -v22+v26; %PrxSS
+dydt(6) = v21-v22-v31; %TrxSH
+dydt(7) = -v21+v22+v31; %TrxSS
+%Monothiol-protein oxidation
+dydt(8) = v12-v11+v42+v43+v16; %GSSG
+dydt(9) = -v12-v14+2*v11-v42-v43-v16; %GSH
+dydt(10) = v13-v12; %GrxSSG
+dydt(11) = v12-v13; %GrxSH
+dydt(12) = v14-v13; %PrSSG
+dydt(13) = v13-v15; %PrSH
+dydt(14) = v15-v14; %PrSOH
+%Dithol-protein oxidation
+dydt(15) = v32-v31; %PrSS
+dydt(16) = -v32+v31; %PrSH2
+%GPx pathway
+dydt(17) = v41-v42; %GPxOx
+dydt(18) = -v43+v42; %GPxSSG
+dydt(19) = -v41+v43; %GPxRd
+%Hyperoxidation pathway
+dydt(20) = v23-v24+v25-v26;% PrxSOH
+dydt(21) = v24-v25;% PrxSOOH
+% NADPH regeneration
+dydt(22) = -v_gen_NADPH+v21+v11; %NADP9
+dydt(23) = v_gen_NADPH-v21-v11+alpha*v_gen_H2O2_total; %NADPH
+ 
+end
