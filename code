@@ -117,7 +117,7 @@ k15 = 1e2; % PrSH-H2O2 to PrSOH-H2O
 k16 = 7.4e-5; % Auto-oxidation of GSH
 
 % Prx pathway
-k21 = 2.2e5; % TrxSS-NADPH to TrxSH-NADP
+k21 = 2.0e5; % TrxSS-NADPH to TrxSH-NADP
 k22 = 2.1e6; %PrxSS-TrxSH to PrxSH-TrxSS
 k23 = 2e7; %PrxSH-H2O2 to PrxSOH
 k24 = 1.2e4; % PrxSOH-H2O2 to PrxSOOH-H2O
