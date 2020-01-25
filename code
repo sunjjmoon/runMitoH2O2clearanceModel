@@ -15,39 +15,48 @@ tspan_sim = tspan*60; % min to sec
 Dala_ex = Dalanine; % mM 
 numOfexp = length(Dala_ex);
 
-param_fit = [0.014855	1.1742	5.31E-12 9.5483];
+param_fit = [8.83e-2	1.586	6.96e-12	80.9];
 
-%% 2. Initial conditions
-% All the initial values will be based on the Adimora value.
-% Initial concentration
+%% 1. Initial conditions
 Dala_en = 0.0;
 H2O2 = 3.33e-9;
 Prx_SH2 = 6e-5;
-Prx_SS = 3.81e-7; 
+Prx_SS = 2.36e-6; 
 PrxSOH = 2e-7;
 PrxSOOH = 2.67e-9;
-Trx_SH2 = 5e-6;
+Trx_SH2 = 7.7e-6;
 Trx_SS = 7.54e-8;
 NADP = 3e-7;
+NADPH = 41.8e-6; 
 GSSG=1.78e-6;
-GSH=3.68e-4; 
-GrxSSG=2.98e-10;
-GrxSH=7e-7;
-PrSH=1.22e-4; 
-PrSOH = 9.2e-11;
-PrSSG=6.38e-8; 
+GSH=5e-3; 
+GrxSSG=1.8e-18;
+GrxSH=1e-6;
+PrSH=1e-9; 
+PrSOH = 5.56e-19;
+PrSSG=2.78e-14; 
 PrSH2 = 1.09e-3; 
-PrSS = 3.32e-8; 
-GPxOx = 1.36e-9; 
-GPxSSG = 5.43e-12;
-GPxRd = 2e-6; 
-NADPH = 41.8e-6; % 
+PrSS = 4.72e-7; 
+GPxOx = 1.5e-11; 
+GPxSSG = 6.00e-14;
+GPxRd = 1.5e-8; 
+
+Prx5SH = 1.4e-5;
+Prx5SOH = 9.43e-10;
+Prx5SS = 9e-10;
+GPx4Rd = 2.3e-7;
+GPx4Ox = 3.6e-13;
+GPx4SSG = 7.29e-16;
+Srx = 8.78e-9;
+
+
 
 y0 = [Dala_en, H2O2, Prx_SH2, Prx_SS, Trx_SH2, ...
     Trx_SS, GSSG, GSH, GrxSSG, GrxSH,...
     PrSSG, PrSH, PrSOH, PrSS, PrSH2,...
     GPxOx, GPxSSG, GPxRd, PrxSOH, PrxSOOH,...
-    NADP NADPH];
+    NADP,NADPH,...
+    Prx5SH, Prx5SOH, Prx5SS, GPx4Rd, GPx4Ox, GPx4SSG, Srx];
 
 %% Initialize
 
@@ -56,10 +65,9 @@ result=cell(1,numOfexp);
 % Run the optimized parameters to the model for simulation
     for i = 1:numOfexp
     y0_all = [Dala_ex(i)*10^-3, y0]; % Add two variables that we obtain from experiments
-%     options = odeset('RelTol',1e-8,'AbsTol',1e-10,'NonNegative',1);
     negspan = [1:length(y0_all)];
     options = odeset('RelTol',1e-8,'AbsTol',1e-10,'NonNegative',negspan);
-    [time,y]=ode15s(@(t,y)odesys(t,y,param_fit),tspan_sim,y0_all,options);
+    [time,y]=ode15s(@(t,y)odesys(t,y,param_fit,Dala_ex(i)),tspan_sim,y0_all,options);
     result{i} = [time y];
     
     filename = 'Data.xlsx';
@@ -73,7 +81,7 @@ end
 
     
 
-function dydt=odesys(t,y,param)
+function dydt=odesys(t,y,param,Dala_ex)
 %% 1.States
 DAAO_ex = y(1);
 DAAO_in = y(2);
@@ -99,28 +107,42 @@ PrxSOOH = y(21);
 NADP = y(22);
 NADPH = y(23);
 
+Prx5SH = y(24);
+Prx5SOH = y(25);
+Prx5SS = y(26);
+GPx4Rd = y(27);
+GPx4Ox = y(28);
+GPx4SSG = y(29);
+Srx = y(30);
+
+if Dala_ex == 0
+    DAAO_ex = 0;
+    DAAO_in = 0;
+end
+
 %% 2. kinetic values
+% param = exp(param);
 k_gen_H2O2 = param(1);
 k_gen_NADPH = param(2);
 k_transport = param(3);
-k_trx_syn = 6.97e-10;
-k_gen_H2O2_intra = 4e-6;
 alpha = param(4);
 
+k_trx_syn = 6.97e-10;
+k_gen_H2O2_intra = 4e-6;
 
 % monothiol-Protein-glutathionylation pathway
 k11 = 3.2e6; % GSSG-NADPH to GSH-NADP
 k12 = 3.7e4; % GrxSSG-GSH to GrxSH-GSSG
-k13 = 9.1e4; % PrSSG-GrxSH to PrSH-GrxSSG
+k13 = 1.2e4; % PrSSG-GrxSH to PrSH-GrxSSG
 k14 = 1.2e5; % PrSOH-GSH to PrSSG-GSSG
 k15 = 1e2; % PrSH-H2O2 to PrSOH-H2O
 k16 = 7.4e-5; % Auto-oxidation of GSH
 
 % Prx pathway
-k21 = 2.0e5; % TrxSS-NADPH to TrxSH-NADP
-k22 = 2.1e6; %PrxSS-TrxSH to PrxSH-TrxSS
+k21 = 2e7; % TrxSS-NADPH to TrxSH-NADP
+k22 = 2.2e5; %PrxSS-TrxSH to PrxSH-TrxSS
 k23 = 2e7; %PrxSH-H2O2 to PrxSOH
-k24 = 1.2e4; % PrxSOH-H2O2 to PrxSOOH-H2O
+k24 = 1.4e4; % PrxSOH-H2O2 to PrxSOOH-H2O
 k25 = 3e-3; % per s -- Prx-SOOH to Prx-OH by Srx
 k26 = 20; %per s PrxSOH to PrxSS
 
@@ -129,10 +151,21 @@ k31 = 1e2; % PrSS-TrxSH to PrSH2-TrxSS
 k32 = 1e2; % PrSH2-H2O2 to PrSS-H2O
 
 % system 4 (GPx pathway)
-k41 = 3e6; % GPx-H2O2 to GPxOx-H2O
+k41 = 6e7; % GPx-H2O2 to GPxOx-H2O
 k42 = 4e4; % GPxOx-GSH to GPxSSG
 k43 = 1e7; % GpxSSG-GSH to GPxSH-GSSG
 
+% system 5 (Prx5)
+k51 = 3e5; % Prx5-H2O2 
+k52 = 14.7; %Prx5-SOH to PrxSS
+k53 = 2e6; % Prx5SS-Trx
+
+% system 6 (Gpx4)
+k61 = 4.8e4; % Gpx4-H2O2
+k62 = 2e4; %Gpx4ox-GSH;
+
+% system 7 (Srx Import)
+k71 = 1.23e-5; 
 %% PA parameters
 A = 4*pi*(10e-6)^2; % surface area of cell m^2
 cell = 7e5; %cells
@@ -147,7 +180,6 @@ v_gen_NADPH = k_gen_NADPH*(NADP);
 v_trx_syn = k_trx_syn;
 v_gen_GSH = 4.8e-7;
 v_deg_GSH = 3.2e-8;
-
 
 % % monothiol-Protein-glutathionylation pathway
 v11 = k11*(GSSG)*NADPH;
@@ -176,23 +208,39 @@ v41 = k41*H2O2*GPxRd;
 v42 = k42*(GPxOx)*GSH;
 v43 = k43*(GPxSSG)*GSH;
 
-v_gen_H2O2_total = v_gen_H2O2+v_gen_H2O2_intra-v15-v23-v24-v32-v41;
+% system 5 (Prx5)
+v51 = k51*Prx5SH*H2O2;
+v52 = k52*Prx5SOH;
+v53 = k53*Prx5SS*TrxSH;
+
+% system 6 (GPx4)
+v61 = k61*GPx4Rd*H2O2;
+v62 = k62*GPx4Ox*GSH;
+v63 = k43*(GPx4SSG)*GSH;
+
+
+% system 7
+v71 = k71;
+
+v_gen_H2O2_total = v_gen_H2O2+v_gen_H2O2_intra-v15-v23-v24-v32-v41-v51-v61;
 
 % 5. system of differential equations
 dydt=zeros(length(y),1);
 
+
+
 % Dalanine transport and generation of H2O2.
 dydt(1) = -k_transport*A*cell/volWell*(volWell/volCell/cell*DAAO_ex-DAAO_in); %Dala_ex
 dydt(2) = k_transport*A/volCell*(volWell/volCell/cell*DAAO_ex-DAAO_in)-v_gen_H2O2; % Dala_in
-dydt(3) = v_gen_H2O2+v_gen_H2O2_intra-v15-v23-v24-v32-v41; %H2O2
+dydt(3) = v_gen_H2O2+v_gen_H2O2_intra-v15-v23-v24-v32-v41-v51-v61-0.00000*y(3); %H2O2
 %sys2. Prx-Trx-pathway
 dydt(4) = v22-v23; %PrxSH
 dydt(5) = -v22+v26; %PrxSS
-dydt(6) = v21-v22-v31+v_trx_syn; %TrxSH
-dydt(7) = -v21+v22+v31; %TrxSS
+dydt(6) = v21-v22-v31+v_trx_syn-v53; %TrxSH
+dydt(7) = -v21+v22+v31+v53; %TrxSS
 % sys1. Monothiol-protein oxidation
-dydt(8) = v12-v11+v42+v43+v16; %GSSG
-dydt(9) = -v12-v14+2*v11-v42-v43+v_gen_GSH-2*v16-v_deg_GSH+v_gen_GSH; %GSH
+dydt(8) = v12-v11+v42+v43+v16+v62+v63; %GSSG
+dydt(9) = -v12-v14+2*v11-v42-v43+v_gen_GSH-2*v16-v62-v63-v_deg_GSH+v_gen_GSH; %GSH
 dydt(10) = v13-v12; %GrxSSG
 dydt(11) = v12-v13; %GrxSH
 dydt(12) = v14-v13; %PrSSG
@@ -211,5 +259,13 @@ dydt(21) = v24-v25;% PrxSOOH
 % NADPH regeneration
 dydt(22) = -v_gen_NADPH+v21+v11; %NADP9
 dydt(23) = v_gen_NADPH-v21-v11+alpha*v_gen_H2O2_total; %NADPH
+
+dydt(24) = -v51 + v53; %Prx5-SH
+dydt(25) = +v51 - v52; %Prx5-SOH
+dydt(26) = v52 - v53; %Prx5-SS
+dydt(27) = -v61 + v63; % GPX4red
+dydt(28) = +v61 - v62; % GPX4ox
+dydt(29) = v62 - v63; % GPX4-SG
+dydt(30) = v71; %Srx
 
 end
