@@ -70,7 +70,7 @@ result=cell(1,numOfexp);
     [time,y]=ode15s(@(t,y)odesys(t,y,param_fit,Dala_ex(i)),tspan_sim,y0_all,options);
     result{i} = [time y];
     
-    filename = 'Data.xlsx';
+    filename = 'Data_model_species.xlsx';
     writematrix([time y],filename,'Sheet',['Dala=' num2str(Dala_ex(i))]);
 
     end
